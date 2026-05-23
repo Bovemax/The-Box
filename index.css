@@ -1,0 +1,53 @@
+body {
+    margin: 0;
+    overflow: hidden;
+    font-family: Arial, sans-serif;
+}
+
+#game {
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+}
+
+#textbox {
+    position: absolute;
+
+    left: 50%;
+    top: -200px;
+
+    transform: translateX(-50%);
+
+    width: 70%;
+    min-height: 120px;
+
+    background: white;
+
+    border: 6px dashed black;
+    border-radius: 30px;
+
+    padding: 25px;
+    box-sizing: border-box;
+
+    transition: top 0.5s ease;
+}
+
+#textbox.show {
+    top: 20px;
+}
+
+#textbox-text {
+    margin: 0;
+    font-size: 28px;
+}
+
+#show-btn {
+    position: absolute;
+    bottom: 40px;
+    left: 40px;
+
+    padding: 10px 20px;
+    font-size: 18px;
+
+    cursor: pointer;
+}
