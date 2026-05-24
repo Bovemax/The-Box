@@ -11,6 +11,11 @@ body {
     user-select: none;
 }
 
+#durability-bar {
+    width: 100vw;
+    height: 100vh;
+}
+
 #textbox {
     position: absolute;
     left: 50%;
