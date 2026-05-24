@@ -1,39 +1,38 @@
 body {
     margin: 0;
     overflow: hidden;
-    font-family: Arial, sans-serif;
+    font-family: "Comic Sans MS", "Comic Sans", sans-serif;
 }
 
 #game {
     width: 100vw;
     height: 100vh;
     position: relative;
+    user-select: none;
 }
 
 #textbox {
     position: absolute;
-
     left: 50%;
     top: -200px;
-
     transform: translateX(-50%);
-
-    width: 70%;
-    min-height: 120px;
-
+    width: 50%;
+    min-height: 200px;
     background: white;
-
-    border: 6px dashed black;
-    border-radius: 30px;
-
+    border: 2px dashed black;
+    border-radius: 20px;
     padding: 25px;
     box-sizing: border-box;
-
-    transition: top 0.5s ease;
+    transition: top 0.5s ease-in-out;
+    overflow: hidden;
 }
 
 #textbox.show {
-    top: 20px;
+    top: 30px;
+}
+
+#textbox.hide {
+    top: -200px;
 }
 
 #textbox-text {
@@ -41,13 +40,47 @@ body {
     font-size: 28px;
 }
 
-#show-btn {
+#down-arrow {
     position: absolute;
-    bottom: 40px;
-    left: 40px;
+    left: 95%;
+    top: 140px;
+    animation: bounce 1s infinite ease-in-out;
+}
 
-    padding: 10px 20px;
-    font-size: 18px;
+#box {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    scale: 500%;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    animation: breath 3s infinite ease-in-out;
+}
 
-    cursor: pointer;
+@keyframes bounce {
+    0% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(6px);
+    }
+
+    100% {
+        transform: translateY(0);
+    }
+}
+
+@keyframes breath {
+    0% {
+        scale: 480%;
+    }
+
+    50% {
+        scale: 530%;
+    }
+
+    100% {
+        scale: 480%;
+    }
 }
