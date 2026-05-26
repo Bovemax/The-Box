@@ -62,6 +62,14 @@ body {
     animation: breath 3s infinite ease-in-out;
 }
 
+#score {
+    position: fixed;
+    top: 10px;
+    left: 50%;
+    font-size: 40px;
+    font-weight: bold;
+}
+
 @keyframes bounce {
     0% {
         transform: translateY(0);

@@ -3,14 +3,28 @@ let displayedDurability = 100;
 let dialogueEvent = 0;
 let busy = false;
 let level = 1;
-let isPressed = false;
 let totalEnemiesDestroyed = 0;
 let spawnInterval;
+let time = 0;
+let score = 0;
+let damageTaken = 0;
+
+function startTime() {
+    const timeInterval = setInterval(() => {
+        updateScore();
+        time++;
+    }, 1000);
+}
+
+// Create Textbox
 
 const textbox = document.getElementById("textbox");
 const textboxText = document.getElementById("textbox-text");
 const gameContainer = document.getElementById("game");
 const box = document.getElementById("box");
+const scoreText = document.getElementById("score");
+
+scoreText.display = "none"; // Hide score until game starts
 
 const durabilityBar = document.getElementById("durability-bar");
 const dctx = durabilityBar.getContext("2d");
@@ -44,20 +58,29 @@ function drawDurabilityBar() {
 }
 
 function animateDurability() {
+    durability -= damageTaken;
     if (displayedDurability > durability) {
-        displayedDurability -= 0.05;
+        displayedDurability -= (damageTaken / 2);
+        Math.ceil(damageTaken /= 1.1);
 
         if (displayedDurability < durability) {
             displayedDurability = durability;
+            damageTaken = 0;
         }
 
+        if (damageTaken < 0.001) {
+            damageTaken = 0;
+        }
+
+        // if (damageTaken < )
+        // {
+
+        // }
         drawDurabilityBar();
     }
 
     requestAnimationFrame(animateDurability);
 }
-
-// fillRect(x , y , width , height);
 
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
@@ -123,6 +146,8 @@ async function intro() {
 }
 
 async function gameLoop() {
+    scoreText.display = "block";
+    startTime();
     clearInterval(spawnInterval);
     switch (level) {
         case 1:
@@ -138,6 +163,11 @@ async function gameLoop() {
             }, 1000);
             break;
     }
+}
+
+function updateScore() {
+    score = time + 5 * totalEnemiesDestroyed;
+    scoreText.textContent = score;
 }
 
 function spawnEnemy(speed) {
@@ -185,30 +215,23 @@ function moveTowards(currentX, currentY, targetX, targetY, speed, elementID) {
 
     if (touching) {
         elementID.remove();
-        durability -= 2;
+        damageTaken += 2;
         drawDurabilityBar();
         return;
     } else {
         currentX += (dx / distance) * speed;
         currentY += (dy / distance) * speed;
-        if (!elementID.hoveringInitialized) {
-            elementID.isHovering = false;
-            elementID.addEventListener('mouseenter', () => {
-                elementID.isHovering = true;
-            });
-            elementID.addEventListener('mouseleave', () => {
-                elementID.isHovering = false;
-            });
-            elementID.hoveringInitialized = true;
-        }
-        if (elementID.isHovering && isPressed) {
-            elementID.remove();
-            totalEnemiesDestroyed++;
-            if (level === 1 && totalEnemiesDestroyed === 5) {
-                level = 2;
-                gameLoop();
-            }
-            return;
+        if (!elementID.clickInitialized) {
+            elementID.addEventListener('mousedown', () => {
+                elementID.remove();
+                totalEnemiesDestroyed++;
+                updateScore();
+                if (level === 1 && totalEnemiesDestroyed === 5) {
+                    level = 2;
+                    gameLoop();
+                }
+            })
+            elementID.clickInitialized = true;
         }
         requestAnimationFrame(() => { moveTowards(currentX, currentY, targetX, targetY, speed, elementID) });
     }
@@ -247,9 +270,6 @@ window.addEventListener('mousedown', (e) => {
 window.addEventListener('mousemove', (mouseMoved) => {
     console.log(`X: ${mouseMoved.clientX}, Y: ${mouseMoved.clientY}`);
 });
-
-window.addEventListener('mousedown', () => isPressed = true);
-window.addEventListener('mouseup', () => isPressed = false);
 
 animateDurability();
 run();
