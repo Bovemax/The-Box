@@ -16,6 +16,7 @@ let isLightningActive = false;
 let isOnFire = false;
 let fireInterval;
 let introTriggered = false;
+let spawnRate = 5000;
 
 const textbox = document.getElementById("textbox");
 const textboxText = document.getElementById("textbox-text");
@@ -38,7 +39,13 @@ function startTime() {
         if (isGameOver) return;
         time++;
         updateScore();
+        enemySpawnRate();
     }, 1000);
+}
+
+function enemySpawnRate() {
+    spawnRate = 1000 * ((Math.pow(0.99, time - 109.3)) + 2);
+    console.log(spawnRate);
 }
 
 async function playLoop() {
@@ -231,23 +238,24 @@ function gameLoop() {
             spawnInterval = setInterval(() => {
                 if (!isGameOver) {
                     spawnEnemy(0);
+                    console.log("enemy spawned");
                 } else {
                     clearInterval(spawnInterval);
                 }
-            }, 5000);
+            }, spawnRate);
             break;
         case 2:
             spawnEnemy(1);
             spawnInterval = setInterval(() => {
                 if (!isGameOver) {
                     spawnEnemy(0);
-                    if (randomNumber(1, 4) === 4) {
+                    if (randomNumber(1, 10) === 10) {
                         spawnEnemy(1);
                     }
                 } else {
                     clearInterval(spawnInterval);
                 }
-            }, 1000);
+            }, spawnRate);
             break;
     }
 }
@@ -346,12 +354,12 @@ async function blockLightning() {
         try { strikeAudio.play(); } catch (e) { }
         damageTaken = 30;
         durability -= damageTaken;
-        drawDurabilityBar();
         const boxRect = box.getBoundingClientRect();
         const targetX = boxRect.left !== 0 ? boxRect.left + (boxRect.width / 2) : window.innerWidth / 2;
         const targetY = boxRect.top !== 0 ? boxRect.top : window.innerHeight / 2;
         lightning.style.left = targetX + 'px';
         lightning.style.top = targetY + 'px';
+        drawDurabilityBar();
     } else {
         try { blockAudio.play(); } catch (e) { }
         const pixelX = parseFloat(mouseX) * window.innerWidth;
@@ -359,7 +367,7 @@ async function blockLightning() {
         lightning.style.left = pixelX + 'px';
         lightning.style.top = pixelY + 'px';
     }
-    await wait(1000);
+    await wait(700);
     lightning.remove();
     isLightningActive = false;
 }
