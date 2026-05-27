@@ -5,14 +5,22 @@ let busy = false;
 let level = 1;
 let totalEnemiesDestroyed = 0;
 let spawnInterval;
+let timeInterval;
 let time = 0;
 let score = 0;
 let damageTaken = 0;
+let isGameOver = false;
+let mouseX;
+let mouseY;
+let isLightningActive = false;
+let isOnFire = false;
 
 function startTime() {
-    const timeInterval = setInterval(() => {
-        updateScore();
+    updateScore();
+    timeInterval = setInterval(() => {
+        if (isGameOver) return;
         time++;
+        updateScore();
     }, 1000);
 }
 
@@ -23,8 +31,26 @@ const textboxText = document.getElementById("textbox-text");
 const gameContainer = document.getElementById("game");
 const box = document.getElementById("box");
 const scoreText = document.getElementById("score");
+const gameOverBox = document.getElementById("game-over");
+const gameOverText = document.getElementById("game-over-text");
 
-scoreText.display = "none"; // Hide score until game starts
+const bgMusicCtx = new AudioContext();
+
+async function playLoop() {
+    const response = await fetch("assets/sadge.wav");
+    const arrayBuffer = await response.arrayBuffer();
+    const audioBuffer = await bgMusicCtx.decodeAudioData(arrayBuffer);
+    const source = bgMusicCtx.createBufferSource();
+    const gainNode = bgMusicCtx.createGain();
+    source.buffer = audioBuffer;
+    source.loop = true;
+    gainNode.gain.value = 0.25;
+    source.connect(gainNode);
+    gainNode.connect(bgMusicCtx.destination);
+    source.start(0);
+}
+
+scoreText.style.display = "none"; // Hide score until game starts
 
 const durabilityBar = document.getElementById("durability-bar");
 const dctx = durabilityBar.getContext("2d");
@@ -34,7 +60,6 @@ function resizeCanvas() {
     const height = window.innerHeight;
     durabilityBar.width = width;
     durabilityBar.height = height;
-    drawDurabilityBar();
 }
 
 function drawDurabilityBar() {
@@ -58,36 +83,43 @@ function drawDurabilityBar() {
 }
 
 function animateDurability() {
-    durability -= damageTaken;
+    if (isGameOver) {
+        dctx.clearRect(0, 0, durabilityBar.width, durabilityBar.height);
+        return;
+    }
     if (displayedDurability > durability) {
-        displayedDurability -= (damageTaken / 2);
-        Math.ceil(damageTaken /= 1.1);
+        displayedDurability -= (damageTaken / 10);
+        damageTaken /= 1.1;
 
         if (displayedDurability < durability) {
             displayedDurability = durability;
             damageTaken = 0;
         }
 
-        if (damageTaken < 0.001) {
+        if (damageTaken < 0.01) {
             damageTaken = 0;
         }
 
-        // if (damageTaken < )
-        // {
-
-        // }
+        if (durability <= 0) {
+            gameOver();
+        }
         drawDurabilityBar();
     }
-
+    durability = Math.floor(durability);
+    displayedDurability = Math.floor(displayedDurability);
     requestAnimationFrame(animateDurability);
+}
+
+function gameOver() {
+    if (isGameOver) return;
+    isGameOver = true;
+    clearInterval(spawnInterval);
+    clearInterval(timeInterval);
+    gameOverBox.classList.add("show");
 }
 
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
-
-setTimeout(() => {
-    textbox.classList.add("show");
-}, 2000);
 
 function typeText(text, speed) {
     return new Promise((resolve) => {
@@ -108,10 +140,15 @@ function typeText(text, speed) {
     });
 }
 
+function randomNumber(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
 async function intro() {
     switch (dialogueEvent) {
         case 0:
-            await wait(2500);
+            await wait(1000);
+            playLoop();
             await typeText("This is a box...", 70);
             dialogueEvent++;
             break;
@@ -145,21 +182,29 @@ async function intro() {
     }
 }
 
-async function gameLoop() {
-    scoreText.display = "block";
+function gameLoop() {
+    scoreText.style.display = "block";
     startTime();
+    drawDurabilityBar();
     clearInterval(spawnInterval);
     switch (level) {
         case 1:
-            spawnEnemy(2);
-            setInterval(() => {
-                spawnEnemy(2);
+            spawnEnemy(0);
+            spawnInterval = setInterval(() => {
+                if (!isGameOver) {
+                    spawnEnemy(0);
+                }
             }, 5000);
             break;
         case 2:
-            spawnEnemy(4);
-            setInterval(() => {
-                spawnEnemy(4);
+            spawnEnemy(1);
+            spawnInterval = setInterval(() => {
+                if (!isGameOver) {
+                    spawnEnemy(0);
+                    if (randomNumber(1, 4) === 4) {
+                        spawnEnemy(1);
+                    }
+                }
             }, 1000);
             break;
     }
@@ -170,33 +215,110 @@ function updateScore() {
     scoreText.textContent = score;
 }
 
-function spawnEnemy(speed) {
-    const enemy1 = document.createElement('img');
-    enemy1.src = 'assets/demo_sprite.png';
-    enemy1.style.position = 'absolute';
-    enemy1.draggable = false;
-    const maxX = gameContainer.clientWidth;
-    const maxY = gameContainer.clientHeight;
-    let randomX = Math.floor(Math.random() * maxX);
-    let randomY = Math.floor(Math.random() * maxY);
-    if (randomX <= maxX / 2) {
-        randomX -= maxX / 2 - 100;
+function spawnEnemy(enemyType) {
+    switch (enemyType) {
+        case 0: // Ball enemy
+            const ball = document.createElement('img');
+            ball.src = 'assets/demo_sprite.png';
+            ball.style.position = 'absolute';
+            ball.style.transform = 'scale(0.3)';
+            ball.style.transformOrigin = 'center';
+            ball.draggable = false;
+
+            const maxX = window.innerWidth;
+            const maxY = window.innerHeight;
+            const spawnOffset = 1000;
+            let randomX;
+            let randomY;
+
+            const side = Math.floor(Math.random() * 4);
+            switch (side) {
+
+                case 0: // Top
+                    randomX = Math.random() * maxX;
+                    randomY = -spawnOffset;
+                    break;
+
+                case 1: // Right
+                    randomX = maxX + spawnOffset;
+                    randomY = Math.random() * maxY;
+                    break;
+
+                case 2: // Bottom
+                    randomX = Math.random() * maxX;
+                    randomY = maxY + spawnOffset;
+                    break;
+
+                case 3: // Left
+                    randomX = -spawnOffset;
+                    randomY = Math.random() * maxY;
+                    break;
+            }
+
+            ball.style.left = randomX + 'px';
+            ball.style.top = randomY + 'px';
+            gameContainer.appendChild(ball);
+            ball.onload = () => {
+                moveTowards(
+                    randomX, randomY, maxX / 2, maxY / 2, 2, ball
+                );
+            };
+            break;
+
+        case 1: // Lightning
+            if (!isLightningActive) {
+                blockLightning();
+            }
+            break;
     }
-    else {
-        randomX += maxX / 2 + 100;
+}
+
+const strikeAudio = new Audio('assets/strike.wav');
+const blockAudio = new Audio('assets/block.wav');
+
+let safe = false;
+async function blockLightning() {
+    isLightningActive = true;
+    const buzzAudio = new Audio('assets/buzz.wav');
+    buzzAudio.play();
+    await wait(Math.floor(Math.random() * 5001) + 5000);
+    buzzAudio.pause();
+    if (isGameOver) {
+        isLightningActive = false;
+        return;
     }
-    if (randomY <= maxY / 2) {
-        randomY -= maxY / 2 - 100;
+    if (mouseY <= 0.5 && mouseX >= 0.44 && mouseX <= 0.6) {
+        safe = true;
+    } else {
+        safe = false;
     }
-    else {
-        randomY += maxY / 2 + 100;
+    const lightning = document.createElement('img');
+    lightning.src = 'assets/lightning.gif';
+    lightning.style.position = 'absolute';
+    lightning.style.zIndex = '10';
+    lightning.style.transformOrigin = 'bottom center';
+    lightning.style.transform = 'translate(-50%, -100%) scale(5)';
+    gameContainer.appendChild(lightning);
+    if (safe === false) {
+        strikeAudio.play();
+        damageTaken = 30;
+        durability -= damageTaken;
+        drawDurabilityBar();
+        const boxRect = box.getBoundingClientRect();
+        const targetX = boxRect.left !== 0 ? boxRect.left + (boxRect.width / 2) : window.innerWidth / 2;
+        const targetY = boxRect.top !== 0 ? boxRect.top : window.innerHeight / 2;
+        lightning.style.left = targetX + 'px';
+        lightning.style.top = targetY + 'px';
+    } else {
+        blockAudio.play();
+        const pixelX = parseFloat(mouseX) * window.innerWidth;
+        const pixelY = parseFloat(mouseY) * window.innerHeight;
+        lightning.style.left = pixelX + 'px';
+        lightning.style.top = pixelY + 'px';
     }
-    enemy1.style.left = randomX + 'px';
-    enemy1.style.top = randomY + 'px';
-    enemy1.style.transform = 'scale(0.3)';
-    enemy1.style.transformOrigin = 'center';
-    gameContainer.appendChild(enemy1);
-    moveTowards(randomX, randomY, maxX / 2, maxY / 2, speed, enemy1);
+    await wait(1000);
+    lightning.remove();
+    isLightningActive = false;
 }
 
 function moveTowards(currentX, currentY, targetX, targetY, speed, elementID) {
@@ -215,7 +337,8 @@ function moveTowards(currentX, currentY, targetX, targetY, speed, elementID) {
 
     if (touching) {
         elementID.remove();
-        damageTaken += 2;
+        damageTaken = 10;
+        durability -= damageTaken;
         drawDurabilityBar();
         return;
     } else {
@@ -239,6 +362,32 @@ function moveTowards(currentX, currentY, targetX, targetY, speed, elementID) {
     elementID.style.top = currentY + 'px';
 }
 
+function setFire() {
+    if (isOnFire || isGameOver) return;
+
+    isOnFire = true;
+
+    fireInterval = setInterval(() => {
+        if (isGameOver) {
+            extinguish();
+            return;
+        }
+
+        damageTaken = 2;
+        durability -= damageTaken;
+
+        drawDurabilityBar();
+    }, 1000);
+}
+
+function extinguish() {
+    if (!isOnFire) return;
+
+    clearInterval(fireInterval);
+    fireInterval = null;
+    isOnFire = false;
+}
+
 async function run() {
     if (busy) return;
     busy = true;
@@ -250,26 +399,49 @@ function wait(ms) {
     return new Promise(resolve => { setTimeout(resolve, ms) });
 }
 
+// Run Textbox on Space, Enter, or ArrowDown key press
 document.addEventListener("keydown", e => {
     if (
         e.key === " " ||
         e.key === "ArrowDown" ||
         e.key === "Enter"
     ) {
+        setTimeout(() => {
+            textbox.classList.add("show");
+        }, 1000);
         run();
     }
 });
 
-
+// Run Textbox on left mouse click
 window.addEventListener('mousedown', (e) => {
     if (e.buttons === 1) {
+        setTimeout(() => {
+            textbox.classList.add("show");
+        }, 1000);
         run();
     }
 });
 
+// Get mouse coordinates
 window.addEventListener('mousemove', (mouseMoved) => {
-    console.log(`X: ${mouseMoved.clientX}, Y: ${mouseMoved.clientY}`);
+    //console.log(`X: ${mouseMoved.clientX}, Y: ${mouseMoved.clientY}`);
+});
+
+// Get mouse position relative to the viewport and screen
+window.addEventListener('mousemove', (e) => {
+    const screenX = e.screenX;
+    const screenY = e.screenY;
+
+    const screenWidth = window.screen.width;
+    const screenHeight = window.screen.height;
+
+    const relativeViewportX = e.clientX / window.innerWidth;
+    const relativeViewportY = e.clientY / window.innerHeight;
+
+    console.log(`X: ${relativeViewportX.toFixed(2)}, Y: ${relativeViewportY.toFixed(2)}`);
+    mouseX = relativeViewportX.toFixed(2);
+    mouseY = relativeViewportY.toFixed(2);
 });
 
 animateDurability();
-run();

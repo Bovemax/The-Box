@@ -19,7 +19,7 @@ body {
 #textbox {
     position: absolute;
     left: 50%;
-    top: -200px;
+    top: -300px;
     transform: translateX(-50%);
     width: 50%;
     min-height: 200px;
@@ -28,8 +28,9 @@ body {
     border-radius: 20px;
     padding: 25px;
     box-sizing: border-box;
-    transition: top 0.5s ease-in-out;
+    transition: top 0.72s ease-in-out;
     overflow: hidden;
+    box-shadow: 0 0 10px 5px rgba(0, 0, 0, 0.2);
 }
 
 #textbox.show {
@@ -66,8 +67,41 @@ body {
     position: fixed;
     top: 10px;
     left: 50%;
+    transform: translateX(-50%);
     font-size: 40px;
     font-weight: bold;
+    text-align: center;
+}
+
+#game-over {
+    position: absolute;
+    left: 50%;
+    top: -200%;
+    transform: translateX(-50%);
+    width: 50%;
+    min-height: 200px;
+    background: white;
+    border: 2px dashed black;
+    border-radius: 20px;
+    padding: 25px;
+    box-sizing: border-box;
+    overflow: hidden;
+    z-index: 999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: top 1.5s ease-in-out;
+}
+
+#game-over-text {
+    margin: 0;
+    font-size: 50px;
+    color: red;
+    text-align: center;
+}
+
+#game-over.show {
+    top: 40%;
 }
 
 @keyframes bounce {
