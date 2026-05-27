@@ -3,7 +3,6 @@
 
 <head>
     <title>The Box</title>
-
     <link rel="stylesheet" href="index.css">
 </head>
 
@@ -14,7 +13,11 @@
             <p id="down-arrow">▼</p>
         </div>
         <div id="game-over">
-            <p id="game-over-text">Game Over</p>
+            <div class="game-over-content">
+                <p id="game-over-text">Game Over</p>
+                <p id="high-score-text">High Score: 0</p>
+                <button id="restart-btn">Play Again</button>
+            </div>
         </div>
         <p id="score"></p>
         <img draggable="false" id="box" alt="The Box" src="assets/box.png" />

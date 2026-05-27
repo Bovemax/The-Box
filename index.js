@@ -10,21 +10,12 @@ let time = 0;
 let score = 0;
 let damageTaken = 0;
 let isGameOver = false;
-let mouseX;
-let mouseY;
+let mouseX = 0;
+let mouseY = 0;
 let isLightningActive = false;
 let isOnFire = false;
-
-function startTime() {
-    updateScore();
-    timeInterval = setInterval(() => {
-        if (isGameOver) return;
-        time++;
-        updateScore();
-    }, 1000);
-}
-
-// Create Textbox
+let fireInterval;
+let introTriggered = false;
 
 const textbox = document.getElementById("textbox");
 const textboxText = document.getElementById("textbox-text");
@@ -33,33 +24,49 @@ const box = document.getElementById("box");
 const scoreText = document.getElementById("score");
 const gameOverBox = document.getElementById("game-over");
 const gameOverText = document.getElementById("game-over-text");
-
-const bgMusicCtx = new AudioContext();
-
-async function playLoop() {
-    const response = await fetch("assets/sadge.wav");
-    const arrayBuffer = await response.arrayBuffer();
-    const audioBuffer = await bgMusicCtx.decodeAudioData(arrayBuffer);
-    const source = bgMusicCtx.createBufferSource();
-    const gainNode = bgMusicCtx.createGain();
-    source.buffer = audioBuffer;
-    source.loop = true;
-    gainNode.gain.value = 0.25;
-    source.connect(gainNode);
-    gainNode.connect(bgMusicCtx.destination);
-    source.start(0);
-}
-
-scoreText.style.display = "none"; // Hide score until game starts
-
+const highScoreText = document.getElementById("high-score-text");
+const restartBtn = document.getElementById("restart-btn");
 const durabilityBar = document.getElementById("durability-bar");
 const dctx = durabilityBar.getContext("2d");
 
+const bgMusicCtx = new AudioContext();
+
+function startTime() {
+    updateScore();
+    clearInterval(timeInterval);
+    timeInterval = setInterval(() => {
+        if (isGameOver) return;
+        time++;
+        updateScore();
+    }, 1000);
+}
+
+async function playLoop() {
+    if (bgMusicCtx.state === 'suspended') {
+        await bgMusicCtx.resume();
+    }
+    try {
+        const response = await fetch("assets/sadge.wav");
+        const arrayBuffer = await response.arrayBuffer();
+        const audioBuffer = await bgMusicCtx.decodeAudioData(arrayBuffer);
+        const source = bgMusicCtx.createBufferSource();
+        const gainNode = bgMusicCtx.createGain();
+        source.buffer = audioBuffer;
+        source.loop = true;
+        gainNode.gain.value = 0.25;
+        source.connect(gainNode);
+        gainNode.connect(bgMusicCtx.destination);
+        source.start(0);
+    } catch (e) {
+        console.log("Audio load blocked or failed: ", e);
+    }
+}
+
+scoreText.style.display = "none";
+
 function resizeCanvas() {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    durabilityBar.width = width;
-    durabilityBar.height = height;
+    durabilityBar.width = window.innerWidth;
+    durabilityBar.height = window.innerHeight;
 }
 
 function drawDurabilityBar() {
@@ -78,7 +85,7 @@ function drawDurabilityBar() {
 
     dctx.fillStyle = "rgb(14, 209, 0)";
     dctx.beginPath();
-    dctx.roundRect(dCenterX, dCenterY * 2 - 10, 12 * displayedDurability, 50, 30);
+    dctx.roundRect(dCenterX, dCenterY * 2 - 10, 12 * Math.max(0, displayedDurability), 50, 30);
     dctx.fill();
 }
 
@@ -101,6 +108,8 @@ function animateDurability() {
         }
 
         if (durability <= 0) {
+            durability = 0;
+            displayedDurability = 0;
             gameOver();
         }
         drawDurabilityBar();
@@ -113,10 +122,45 @@ function animateDurability() {
 function gameOver() {
     if (isGameOver) return;
     isGameOver = true;
+
     clearInterval(spawnInterval);
     clearInterval(timeInterval);
+
+    let highScore = localStorage.getItem("boxHighScore") || 0;
+    if (score > highScore) {
+        highScore = score;
+        localStorage.setItem("boxHighScore", highScore);
+    }
+    highScoreText.textContent = `High Score: ${highScore}`;
     gameOverBox.classList.add("show");
 }
+
+function restartGame() {
+    const activeEnemies = gameContainer.querySelectorAll("img:not(#box)");
+    activeEnemies.forEach(enemy => enemy.remove());
+
+    durability = 100;
+    displayedDurability = 100;
+    level = 1;
+    totalEnemiesDestroyed = 0;
+    time = 0;
+    score = 0;
+    damageTaken = 0;
+    isGameOver = false;
+    isLightningActive = false;
+    isOnFire = false;
+
+    gameOverBox.classList.remove("show");
+    updateScore();
+
+    animateDurability();
+    gameLoop();
+}
+
+restartBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    restartGame();
+});
 
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
@@ -124,14 +168,10 @@ resizeCanvas();
 function typeText(text, speed) {
     return new Promise((resolve) => {
         let i = 0;
-
         textboxText.textContent = "";
-
         const interval = setInterval(() => {
             textboxText.textContent = text.slice(0, i + 1);
-
             i++;
-
             if (i >= text.length) {
                 clearInterval(interval);
                 resolve();
@@ -152,29 +192,25 @@ async function intro() {
             await typeText("This is a box...", 70);
             dialogueEvent++;
             break;
-
         case 1:
             await typeText("Don't let it open...", 70);
             dialogueEvent++;
             break;
-
         case 2:
             await typeText("Or else...", 70);
             dialogueEvent++;
             break;
-
         case 3:
             await typeText("It's over...", 70);
             dialogueEvent++;
             break;
-
         case 4:
             await typeText("Good luck.", 70);
             dialogueEvent++;
             break;
-
         case 5:
-            await textbox.classList.add("hide");
+            textbox.classList.remove("show");
+            textbox.classList.add("hide");
             await wait(2000);
             await gameLoop();
             dialogueEvent = -1;
@@ -183,16 +219,20 @@ async function intro() {
 }
 
 function gameLoop() {
+    if (isGameOver) return;
     scoreText.style.display = "block";
     startTime();
     drawDurabilityBar();
     clearInterval(spawnInterval);
+
     switch (level) {
         case 1:
             spawnEnemy(0);
             spawnInterval = setInterval(() => {
                 if (!isGameOver) {
                     spawnEnemy(0);
+                } else {
+                    clearInterval(spawnInterval);
                 }
             }, 5000);
             break;
@@ -204,6 +244,8 @@ function gameLoop() {
                     if (randomNumber(1, 4) === 4) {
                         spawnEnemy(1);
                     }
+                } else {
+                    clearInterval(spawnInterval);
                 }
             }, 1000);
             break;
@@ -216,6 +258,8 @@ function updateScore() {
 }
 
 function spawnEnemy(enemyType) {
+    if (isGameOver) return;
+
     switch (enemyType) {
         case 0: // Ball enemy
             const ball = document.createElement('img');
@@ -228,27 +272,22 @@ function spawnEnemy(enemyType) {
             const maxX = window.innerWidth;
             const maxY = window.innerHeight;
             const spawnOffset = 1000;
-            let randomX;
-            let randomY;
+            let randomX, randomY;
 
             const side = Math.floor(Math.random() * 4);
             switch (side) {
-
                 case 0: // Top
                     randomX = Math.random() * maxX;
                     randomY = -spawnOffset;
                     break;
-
                 case 1: // Right
                     randomX = maxX + spawnOffset;
                     randomY = Math.random() * maxY;
                     break;
-
                 case 2: // Bottom
                     randomX = Math.random() * maxX;
                     randomY = maxY + spawnOffset;
                     break;
-
                 case 3: // Left
                     randomX = -spawnOffset;
                     randomY = Math.random() * maxY;
@@ -259,9 +298,7 @@ function spawnEnemy(enemyType) {
             ball.style.top = randomY + 'px';
             gameContainer.appendChild(ball);
             ball.onload = () => {
-                moveTowards(
-                    randomX, randomY, maxX / 2, maxY / 2, 2, ball
-                );
+                moveTowards(randomX, randomY, maxX / 2, maxY / 2, 2, ball);
             };
             break;
 
@@ -278,20 +315,25 @@ const blockAudio = new Audio('assets/block.wav');
 
 let safe = false;
 async function blockLightning() {
+    if (isGameOver) return;
     isLightningActive = true;
     const buzzAudio = new Audio('assets/buzz.wav');
-    buzzAudio.play();
+    try { buzzAudio.play(); } catch (e) { }
+
     await wait(Math.floor(Math.random() * 5001) + 5000);
     buzzAudio.pause();
+
     if (isGameOver) {
         isLightningActive = false;
         return;
     }
+
     if (mouseY <= 0.5 && mouseX >= 0.44 && mouseX <= 0.6) {
         safe = true;
     } else {
         safe = false;
     }
+
     const lightning = document.createElement('img');
     lightning.src = 'assets/lightning.gif';
     lightning.style.position = 'absolute';
@@ -299,8 +341,9 @@ async function blockLightning() {
     lightning.style.transformOrigin = 'bottom center';
     lightning.style.transform = 'translate(-50%, -100%) scale(5)';
     gameContainer.appendChild(lightning);
+
     if (safe === false) {
-        strikeAudio.play();
+        try { strikeAudio.play(); } catch (e) { }
         damageTaken = 30;
         durability -= damageTaken;
         drawDurabilityBar();
@@ -310,7 +353,7 @@ async function blockLightning() {
         lightning.style.left = targetX + 'px';
         lightning.style.top = targetY + 'px';
     } else {
-        blockAudio.play();
+        try { blockAudio.play(); } catch (e) { }
         const pixelX = parseFloat(mouseX) * window.innerWidth;
         const pixelY = parseFloat(mouseY) * window.innerHeight;
         lightning.style.left = pixelX + 'px';
@@ -322,6 +365,11 @@ async function blockLightning() {
 }
 
 function moveTowards(currentX, currentY, targetX, targetY, speed, elementID) {
+    if (isGameOver || !elementID.parentNode) {
+        if (elementID.parentNode) elementID.remove();
+        return;
+    }
+
     const radius = elementID.clientWidth / 2;
     const dx = targetX - currentX - radius;
     const dy = targetY - currentY - radius;
@@ -345,7 +393,9 @@ function moveTowards(currentX, currentY, targetX, targetY, speed, elementID) {
         currentX += (dx / distance) * speed;
         currentY += (dy / distance) * speed;
         if (!elementID.clickInitialized) {
-            elementID.addEventListener('mousedown', () => {
+            elementID.addEventListener('mousedown', (e) => {
+                e.stopPropagation();
+                if (isGameOver) return;
                 elementID.remove();
                 totalEnemiesDestroyed++;
                 updateScore();
@@ -353,7 +403,7 @@ function moveTowards(currentX, currentY, targetX, targetY, speed, elementID) {
                     level = 2;
                     gameLoop();
                 }
-            })
+            });
             elementID.clickInitialized = true;
         }
         requestAnimationFrame(() => { moveTowards(currentX, currentY, targetX, targetY, speed, elementID) });
@@ -364,25 +414,20 @@ function moveTowards(currentX, currentY, targetX, targetY, speed, elementID) {
 
 function setFire() {
     if (isOnFire || isGameOver) return;
-
     isOnFire = true;
-
     fireInterval = setInterval(() => {
         if (isGameOver) {
             extinguish();
             return;
         }
-
         damageTaken = 2;
         durability -= damageTaken;
-
         drawDurabilityBar();
     }, 1000);
 }
 
 function extinguish() {
     if (!isOnFire) return;
-
     clearInterval(fireInterval);
     fireInterval = null;
     isOnFire = false;
@@ -391,6 +436,7 @@ function extinguish() {
 async function run() {
     if (busy) return;
     busy = true;
+    introTriggered = true;
     await intro();
     busy = false;
 }
@@ -399,47 +445,36 @@ function wait(ms) {
     return new Promise(resolve => { setTimeout(resolve, ms) });
 }
 
-// Run Textbox on Space, Enter, or ArrowDown key press
+function advanceIntro() {
+    if (isGameOver) return;
+    if (!introTriggered) {
+        setTimeout(() => {
+            if (!isGameOver && dialogueEvent >= 0) textbox.classList.add("show");
+        }, 1000);
+        run();
+    } else if (busy === false && dialogueEvent > 0) {
+        run();
+    }
+}
+
 document.addEventListener("keydown", e => {
-    if (
-        e.key === " " ||
-        e.key === "ArrowDown" ||
-        e.key === "Enter"
-    ) {
-        setTimeout(() => {
-            textbox.classList.add("show");
-        }, 1000);
-        run();
+    if (e.key === " " || e.key === "ArrowDown" || e.key === "Enter") {
+        advanceIntro();
     }
 });
 
-// Run Textbox on left mouse click
 window.addEventListener('mousedown', (e) => {
+    if (e.target.id === "restart-btn") return;
+
     if (e.buttons === 1) {
-        setTimeout(() => {
-            textbox.classList.add("show");
-        }, 1000);
-        run();
+        advanceIntro();
     }
 });
 
-// Get mouse coordinates
-window.addEventListener('mousemove', (mouseMoved) => {
-    //console.log(`X: ${mouseMoved.clientX}, Y: ${mouseMoved.clientY}`);
-});
-
-// Get mouse position relative to the viewport and screen
 window.addEventListener('mousemove', (e) => {
-    const screenX = e.screenX;
-    const screenY = e.screenY;
-
-    const screenWidth = window.screen.width;
-    const screenHeight = window.screen.height;
-
     const relativeViewportX = e.clientX / window.innerWidth;
     const relativeViewportY = e.clientY / window.innerHeight;
 
-    console.log(`X: ${relativeViewportX.toFixed(2)}, Y: ${relativeViewportY.toFixed(2)}`);
     mouseX = relativeViewportX.toFixed(2);
     mouseY = relativeViewportY.toFixed(2);
 });
