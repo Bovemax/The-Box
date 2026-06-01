@@ -10,13 +10,17 @@ let time = 0;
 let score = 0;
 let damageTaken = 0;
 let isGameOver = false;
-let mouseX = 0;
+let mouseX = 0; // These are the coords relative to the vp (mouse at top of screen --> 0, mouse at bottom --> 1)
 let mouseY = 0;
+let mouseCoordX = 0; // These are the actual mouse coords
+let mouseCoordY = 0;
+let isMouseInBox = false;
 let isLightningActive = false;
 let isOnFire = false;
 let fireInterval;
 let introTriggered = false;
 let spawnRate = 5000;
+let extinguishTimer = null;
 
 const textbox = document.getElementById("textbox");
 const textboxText = document.getElementById("textbox-text");
@@ -276,6 +280,7 @@ function spawnEnemy(enemyType) {
             ball.style.transform = 'scale(0.3)';
             ball.style.transformOrigin = 'center';
             ball.draggable = false;
+            ball.style.zIndex = '0';
 
             const maxX = window.innerWidth;
             const maxY = window.innerHeight;
@@ -348,6 +353,8 @@ async function blockLightning() {
     lightning.style.zIndex = '10';
     lightning.style.transformOrigin = 'bottom center';
     lightning.style.transform = 'translate(-50%, -100%) scale(5)';
+    lightning.style.imageRendering = 'pixelated';
+    lightning.style.pointerEvents = 'none'; // Allows to be clicked through
     gameContainer.appendChild(lightning);
 
     if (safe === false) {
@@ -360,6 +367,9 @@ async function blockLightning() {
         lightning.style.left = targetX + 'px';
         lightning.style.top = targetY + 'px';
         drawDurabilityBar();
+        if (randomNumber(1, 4) === 1) {
+            setFire();
+        }
     } else {
         try { blockAudio.play(); } catch (e) { }
         const pixelX = parseFloat(mouseX) * window.innerWidth;
@@ -486,5 +496,35 @@ window.addEventListener('mousemove', (e) => {
     mouseX = relativeViewportX.toFixed(2);
     mouseY = relativeViewportY.toFixed(2);
 });
+
+window.addEventListener('mousemove', e => {
+    mouseCoordX = e.clientX;
+    mouseCoordY = e.clientY;
+})
+
+box.addEventListener('mouseenter', e => {
+    isMouseInBox = true;
+})
+
+box.addEventListener('mouseleave', e => {
+    isMouseInBox = false;
+})
+
+window.addEventListener('keydown', e => {
+    if (e.key !== "e") return;
+    if (e.repeat) return;
+    if (isMouseInBox) {
+        extinguishTimer = setTimeout(() => {
+            extinguish();
+        }, 5000);
+    }
+})
+
+window.addEventListener('keyup', e => {
+    if (e.key === "e") {
+        clearTimeout(extinguishTimer);
+        extinguishTimer = null;
+    }
+})
 
 animateDurability();
